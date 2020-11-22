@@ -10,14 +10,14 @@ using System.IO;
 using System.Xml;
 using System.Collections;
 
-namespace AlienBML
+namespace CATHODE
 {
     // fake typedefs
     using u32 = UInt32;
     using u16 = UInt16;
     using u8 = Byte;
 
-    class BML
+    public class BML
     {
         // complete.
         struct Header
@@ -79,21 +79,21 @@ namespace AlienBML
         // complete.
         struct Attribute
         {
-            public AlienString.Ref Name { get; private set; }
-            public AlienString.Ref Value { get; private set; }
+            public BMLString.Ref Name { get; private set; }
+            public BMLString.Ref Value { get; private set; }
 
             public bool ReadXML(string str_name, string str_value)
             {
-                Name = new AlienString.Ref(str_name, true);
-                Value = new AlienString.Ref(AlienString.DecodeXml(str_value), true);
+                Name = new BMLString.Ref(str_name, true);
+                Value = new BMLString.Ref(BMLString.DecodeXml(str_value), true);
 
                 return true;
             }
 
             public bool Read(BinaryReader br)
             {
-                Name = new AlienString.Ref(br, true);
-                Value = new AlienString.Ref(br, true);
+                Name = new BMLString.Ref(br, true);
+                Value = new BMLString.Ref(br, true);
 
                 return true;
             }
@@ -181,13 +181,6 @@ namespace AlienBML
                 // note: we store raw_children as u16 for alignment purposes
                 // aaaa aaaa iiic cccc cccc cccc ccc- ---- (- = ignored)
 
-#if DEBUG
-                if (raw_children > 0xFFFF)
-                {
-                    Console.WriteLine("Warning: huge number of child nodes");
-                }
-#endif
-
                 Children = Convert.ToUInt16(raw_children & 0xFFFF);
 
                 return true;
@@ -222,10 +215,10 @@ namespace AlienBML
             public List<Node> Nodes { get; private set; }
             public List<Attribute> Attributes { get; private set; }
 
-            public AlienString.Ref End2 { get; private set; }
-            public AlienString.Ref Text { get; private set; }
-            public AlienString.Ref End { get; private set; }
-            public AlienString.Ref Inner { get; private set; }
+            public BMLString.Ref End2 { get; private set; }
+            public BMLString.Ref Text { get; private set; }
+            public BMLString.Ref End { get; private set; }
+            public BMLString.Ref Inner { get; private set; }
 
             public u32 Offset { get; set; } // public modifier
             public u32 Depth { get; private set; }
@@ -242,7 +235,7 @@ namespace AlienBML
 
             public void SetDeclaration()
             {
-                Text = new AlienString.Ref("?xml", true);
+                Text = new BMLString.Ref("?xml", true);
                 Flags.Children = 0;
             }
 
@@ -268,13 +261,12 @@ namespace AlienBML
                 bool valid = true;
 
                 Depth = depth;
-                Text = new AlienString.Ref(ele.Name, true);
+                Text = new BMLString.Ref(ele.Name, true);
 
                 if (ele.HasAttributes)
                 {
                     if( ele.Attributes.Count > 0xFF )
                     {
-                        Console.WriteLine("Too many attributes for {0}", Text.value);
                         valid = false;
                         return valid;
                     }
@@ -314,20 +306,16 @@ namespace AlienBML
 
                             case XmlNodeType.Text:
 
-                                Inner = new AlienString.Ref(AlienString.DecodeXml(xnode.Value),false);
-                                End2 = new AlienString.Ref("\r\n", false);
+                                Inner = new BMLString.Ref(BMLString.DecodeXml(xnode.Value),false);
+                                End2 = new BMLString.Ref("\r\n", false);
                                 
                                 break;
 
                             case XmlNodeType.Comment:
-
                                 // Could be added as Inner/End2, but not required
-                                Console.WriteLine("Found XML comment - skipping it");
-
                                 break;
 
                             default:
-                                Console.WriteLine("XmlNodeType not handled - skipping it");
                                 break;
                         }
                     }
@@ -345,7 +333,7 @@ namespace AlienBML
                 bool valid = true;
 
                 Depth = depth;
-                Text = new AlienString.Ref(br, true);
+                Text = new BMLString.Ref(br, true);
 
                 valid &= Flags.Read(br);
                 
@@ -353,12 +341,6 @@ namespace AlienBML
 
                 if( Flags.Attributes > 0 )
                 {
-#if DEBUG
-                    if( Flags.Attributes > 100 )
-                    {
-                        Console.WriteLine("Possible large number of attributes -> {0} (node={1})", Flags.Attributes, Text);
-                    }
-#endif
                     for (u32 attribs = 0; attribs < (u32)Flags.Attributes; attribs++)
                     {
                         Attribute a = new Attribute();
@@ -376,27 +358,19 @@ namespace AlienBML
                 switch (Flags.RawInfo)
                 {
                     case 0: // 000
-
                         Offset = br.ReadUInt32();
-
-#if DEBUG
-                        if( Offset != 28 )
-                        {
-                            Console.WriteLine("Interesting offset {0}", Offset);
-                        }
-#endif
 
                         break;
 
                     case 1: // 001
-                        End = new AlienString.Ref(br, false);
+                        End = new BMLString.Ref(br, false);
                         Offset = br.ReadUInt32();
 
                         break;
 
                     case 2: // 010 -> last in sequence
                     case 6: // 110 -> continued sequence
-                        End = new AlienString.Ref(br, false);
+                        End = new BMLString.Ref(br, false);
 
                         if (Flags.Children > 0)
                         {
@@ -410,8 +384,8 @@ namespace AlienBML
 
                         // note: inner text is stored in the second pool
 
-                        Inner = new AlienString.Ref(br, false); // inner text or line diff
-                        End2 = new AlienString.Ref(br, false); // line ending
+                        Inner = new BMLString.Ref(br, false); // inner text or line diff
+                        End2 = new BMLString.Ref(br, false); // line ending
 
                         if (Flags.Children > 0)
                         {
@@ -458,7 +432,6 @@ namespace AlienBML
                         if (Flags.Children > 0) my_size += 4;
                         break;
                     default:
-                        Console.WriteLine("Unsupported info");
                         break;
                 }
 
@@ -487,7 +460,7 @@ namespace AlienBML
                     {
                         if (End == null)
                         {
-                            End = new AlienString.Ref("\r\n", false);
+                            End = new BMLString.Ref("\r\n", false);
                         }
 
                         // declaration kept - child mandatory
@@ -511,7 +484,7 @@ namespace AlienBML
 
                         if( End2 == null )
                         {
-                            End2 = new AlienString.Ref("\r\n", false);
+                            End2 = new BMLString.Ref("\r\n", false);
                         }
                     }
                     else
@@ -525,7 +498,7 @@ namespace AlienBML
 
                         if (End == null)
                         {
-                            End = new AlienString.Ref("\r\n", false);
+                            End = new BMLString.Ref("\r\n", false);
                         }
                     }
                 }
@@ -570,7 +543,6 @@ namespace AlienBML
                         if (Flags.Children > 0) bw.Write(Offset);
                         break;
                     default:
-                        Console.WriteLine("Unsupported info");
                         break;
                 }
 
@@ -600,10 +572,6 @@ namespace AlienBML
                 {
                     long pos = br.BaseStream.Position;
 
-#if DEBUG
-                    Console.WriteLine("Parsing child at {0}", n.Offset);
-#endif
-
                     // seek to child pos
                     br.BaseStream.Position = n.Offset;
 
@@ -632,11 +600,7 @@ namespace AlienBML
             // there should be at least 1 child node
             success &= (root.Flags.Children > 0);
             
-            if( !success )
-            {
-                Console.WriteLine("Unexpected XML data");
-                return false;
-            }
+            if(!success) return false;
             
             success &= ReadWrapper(br, ref root, root.Depth +1);
 
@@ -649,14 +613,10 @@ namespace AlienBML
 
             valid &= hdr.Read(br);
 
-            if (!valid)
-            {
-                Console.WriteLine("Failed to read header");
-                return valid;
-            }
+            if (!valid)  return valid;
 
-            AlienString.StringPool1.Clear();
-            AlienString.StringPool2.Clear();
+            BMLString.StringPool1.Clear();
+            BMLString.StringPool2.Clear();
 
             valid &= ReadAllNodes(br);
 
@@ -673,14 +633,13 @@ namespace AlienBML
             }
             catch
             {
-                Console.WriteLine("Failed to parse XML - exiting");
                 return false;
             }
 
             bool valid = true;
 
-            AlienString.StringPool1.Clear();
-            AlienString.StringPool2.Clear();
+            BMLString.StringPool1.Clear();
+            BMLString.StringPool2.Clear();
             
             // fake setup for declaration (always root node)
             root.SetDeclaration();
@@ -722,8 +681,6 @@ namespace AlienBML
                         break;
 
                     case XmlNodeType.Comment:
-
-                        Console.WriteLine("Found XML comment - skipping it");
                         break;
 
                     case XmlNodeType.Element:
@@ -735,7 +692,6 @@ namespace AlienBML
                         break;
 
                     default:
-                        Console.WriteLine("XmlNodeType not handled - skipping it");
                         break;
                 }
             }
@@ -756,7 +712,7 @@ namespace AlienBML
                 foreach (Attribute a in n.Attributes)
                 {
                     // Now encodes XML entities (value)
-                    d += String.Format(" {0}=\"{1}\"", a.Name.value, AlienString.EncodeXml(a.Value.value));
+                    d += String.Format(" {0}=\"{1}\"", a.Name.value, BMLString.EncodeXml(a.Value.value));
                 }
             }
 
@@ -778,7 +734,7 @@ namespace AlienBML
                 if (n.Inner != null && n.Inner.value.Length != 0)
                 {
                     // Now encodes XML entities
-                    d += AlienString.EncodeXml(n.Inner.value);
+                    d += BMLString.EncodeXml(n.Inner.value);
                 }
 
                 foreach (Node node in n.Nodes)
@@ -826,10 +782,6 @@ namespace AlienBML
             FixupAllNodes(root, true);
 
             xml = DumpNode(root);
-
-#if DEBUG
-            Console.WriteLine(xml);
-#endif
 
             return true;
         }
@@ -915,8 +867,8 @@ namespace AlienBML
                 node_size += n.Size();
             }
 
-            MemoryStream p1 = AlienString.StringPool1.Export();
-            MemoryStream p2 = AlienString.StringPool2.Export();
+            MemoryStream p1 = BMLString.StringPool1.Export();
+            MemoryStream p2 = BMLString.StringPool2.Export();
 
             u32 block1 = Header.Size()
                 + node_size

@@ -5,17 +5,16 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Text;
-using System.Threading.Tasks;
 using System.IO;
 
-namespace AlienBML
+namespace CATHODE
 {
     // fake typedefs
     using u32 = UInt32;
     using u16 = UInt16;
     using u8 = Byte;
 
-    class AlienString
+    class BMLString
     {
 #region Common methods for reading strings from a BinaryReader
 
