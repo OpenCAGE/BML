@@ -10,7 +10,7 @@ using System.IO;
 using System.Xml;
 using System.Collections;
 
-namespace CATHODE
+namespace CATHODE.BML
 {
     // fake typedefs
     using u32 = UInt32;

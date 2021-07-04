@@ -3,9 +3,8 @@
 
 using System.Text;
 using System.IO;
-using CATHODE;
 
-namespace CathodeLib
+namespace CATHODE.BML
 {
     public class AlienBML
     {
