@@ -20,6 +20,8 @@ namespace CATHODE
         private Header _header;
         private Node _root = new Node();
 
+        public XmlDocument Content { get { return GetContent(); } set { SetContent(value); } }
+
         public BML(string path) : base(path) { }
 
         #region FILE_IO
@@ -27,7 +29,7 @@ namespace CATHODE
         {
             if (!File.Exists(_filepath)) return false;
 
-            bool valid = false;
+            bool valid = true;
             BinaryReader reader = new BinaryReader(File.OpenRead(_filepath));
             try
             {
@@ -118,7 +120,7 @@ namespace CATHODE
 
         #region ACCESSORS
         /* Get the content of the BML file (as XML) */
-        public XmlDocument GetContent()
+        private XmlDocument GetContent()
         {
             FixupAllNodes(_root, true);
 
@@ -128,7 +130,7 @@ namespace CATHODE
         }
 
         /* Set the content of the BML file (as XML) */
-        public bool SetContent(XmlDocument doc)
+        private bool SetContent(XmlDocument doc)
         {
             bool valid = true;
             BMLString.StringPool1.Clear();
