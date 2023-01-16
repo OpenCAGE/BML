@@ -25,13 +25,10 @@ namespace CATHODE
         public BML(string path) : base(path) { }
 
         #region FILE_IO
-        protected override bool Load()
+        override protected bool LoadInternal()
         {
-            if (!File.Exists(_filepath)) return false;
-
             bool valid = true;
-            BinaryReader reader = new BinaryReader(File.OpenRead(_filepath));
-            try
+            using (BinaryReader reader = new BinaryReader(File.OpenRead(_filepath)))
             {
                 valid &= _header.Read(reader);
                 if (!valid)
@@ -44,19 +41,12 @@ namespace CATHODE
                 BMLString.StringPool2.Clear();
                 valid &= ReadAllNodes(reader);
             }
-            catch
-            {
-                reader.Close();
-                return false;
-            }
-            reader.Close();
             return valid;
         }
 
-        public override bool Save()
+        override protected bool SaveInternal()
         {
-            BinaryWriter writer = new BinaryWriter(File.OpenWrite(_filepath));
-            try
+            using (BinaryWriter writer = new BinaryWriter(File.OpenWrite(_filepath)))
             {
                 FixupAllNodes(_root, true);
 
@@ -108,12 +98,6 @@ namespace CATHODE
                 p1.WriteTo(writer.BaseStream);
                 p2.WriteTo(writer.BaseStream);
             }
-            catch
-            {
-                writer.Close();
-                return false;
-            }
-            writer.Close();
             return true;
         }
         #endregion
