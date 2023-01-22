@@ -11,18 +11,15 @@ using System.Linq;
 
 namespace CATHODE
 {
-    using u32 = UInt32;
-    using u16 = UInt16;
-    using u8 = Byte;
-
+    /* Handles BML config files as XML douments */
     public class BML : CathodeFile
     {
+        public XmlDocument Content { get { return GetContent(); } set { SetContent(value); } }
+        public static new Impl Implementation = Impl.CREATE | Impl.LOAD | Impl.SAVE;
+        public BML(string path) : base(path) { }
+
         private Header _header;
         private Node _root = new Node();
-
-        public XmlDocument Content { get { return GetContent(); } set { SetContent(value); } }
-
-        public BML(string path) : base(path) { }
 
         #region FILE_IO
         override protected bool LoadInternal()
@@ -51,28 +48,28 @@ namespace CATHODE
                 FixupAllNodes(_root, true);
 
                 Node[] nodearray = GetNodeArray();
-                u32 node_size = 0;
+                UInt32 node_size = 0;
                 foreach (Node n in nodearray)
                     node_size += n.Size();
 
                 MemoryStream p1 = BMLString.StringPool1.Export();
                 MemoryStream p2 = BMLString.StringPool2.Export();
 
-                u32 block1 = Header.Size() + node_size + 1;
-                u32 block2 = block1 + 1 + (u32)p1.Length;
-                u32 block3 = block2 + (u32)p2.Length;
-                u32 file_size = block3 + 1;
+                UInt32 block1 = Header.Size() + node_size + 1;
+                UInt32 block2 = block1 + 1 + (UInt32)p1.Length;
+                UInt32 block3 = block2 + (UInt32)p2.Length;
+                UInt32 file_size = block3 + 1;
 
                 _header.Fixup(block1, block2, block3);
                 writer.BaseStream.SetLength(file_size);
 
-                u32 of1 = block1 + 1;
-                u32 of2 = block2;
+                UInt32 of1 = block1 + 1;
+                UInt32 of2 = block2;
 
                 _header.Write(writer);
 
-                u32 cur_depth = 0;
-                u32 cur_depth_offset = 0;
+                UInt32 cur_depth = 0;
+                UInt32 cur_depth_offset = 0;
                 foreach (Node n in nodearray)
                 {
                     if (n.Flags.Children > 0)
@@ -158,7 +155,7 @@ namespace CATHODE
         #endregion
 
         #region HELPERS
-        private bool ReadWrapper(BinaryReader br, ref Node owner, u32 depth)
+        private bool ReadWrapper(BinaryReader br, ref Node owner, UInt32 depth)
         {
             bool success = true;
 
@@ -175,7 +172,7 @@ namespace CATHODE
                     // seek to child pos
                     br.BaseStream.Position = n.Offset;
 
-                    for (u32 i = 0; i < n.Flags.Children; i++)
+                    for (UInt32 i = 0; i < n.Flags.Children; i++)
                     {
                         success &= ReadWrapper(br, ref n, depth + 1);
                     }
@@ -297,7 +294,7 @@ namespace CATHODE
             }
         }
 
-        private Node[] GetNodesAtDepth(List<Node> nodes, u32 depth)
+        private Node[] GetNodesAtDepth(List<Node> nodes, UInt32 depth)
         {
             List<Node> local_nodes = new List<Node>();
 
@@ -327,7 +324,7 @@ namespace CATHODE
             // level 0
             nodes.Add(_root);
             // level 1+
-            u32 depth = 1;
+            UInt32 depth = 1;
             while ( true )
             {
                 Node[] ns = GetNodesAtDepth(_root.Nodes, depth);
@@ -352,9 +349,9 @@ namespace CATHODE
         {
             const string XML_FLAG = "xml\0";
 
-            public u32 blockData { get; private set; }
-            public u32 blockStrings { get; private set; }
-            public u32 blockLineEndings { get; private set; }
+            public UInt32 blockData { get; private set; }
+            public UInt32 blockStrings { get; private set; }
+            public UInt32 blockLineEndings { get; private set; }
 
             public bool Read(BinaryReader br)
             {
@@ -391,14 +388,14 @@ namespace CATHODE
                 return valid;
             }
 
-            public void Fixup(u32 of1, u32 of2, u32 of3)
+            public void Fixup(UInt32 of1, UInt32 of2, UInt32 of3)
             {
                 blockData = of1;
                 blockStrings = of2;
                 blockLineEndings = of3;
             }
 
-            static public u32 Size()
+            static public UInt32 Size()
             {
                 return 16;
             }
@@ -434,7 +431,7 @@ namespace CATHODE
                 return true;
             }
 
-            static public u32 Size()
+            static public UInt32 Size()
             {
                 return 8;
             }
@@ -442,9 +439,9 @@ namespace CATHODE
 
         class NodeFlags
         {
-            public u8 Attributes { get; set; }
+            public Byte Attributes { get; set; }
 
-            public u8 RawInfo { get; set; }
+            public Byte RawInfo { get; set; }
 
             public bool unknown_1
             {
@@ -467,12 +464,12 @@ namespace CATHODE
                 set { SetFlag(0x4, value); }
             }
 
-            bool GetFlag(u8 mask)
+            bool GetFlag(Byte mask)
             {
                 return (RawInfo & mask) != 0;
             }
 
-            void SetFlag(u8 mask, bool value)
+            void SetFlag(Byte mask, bool value)
             {
                 RawInfo &= Convert.ToByte((~mask) & 0xFF);
                 if (value)
@@ -481,7 +478,7 @@ namespace CATHODE
                 }
             }
 
-            public u16 Children { get; set; }
+            public UInt16 Children { get; set; }
 
             public NodeFlags()
             {
@@ -492,7 +489,7 @@ namespace CATHODE
 
             public bool Read(BinaryReader br)
             {
-                u32 bytes = br.ReadUInt32();
+                UInt32 bytes = br.ReadUInt32();
 
                 // bit format:
                 // aaaa aaaa iiic cccc cccc cccc cccc cccc
@@ -504,7 +501,7 @@ namespace CATHODE
                 RawInfo = Convert.ToByte((bytes >> 8) & 0x7);
 
                 // 21-bits : number of child nodes
-                u32 raw_children = (bytes >> 11) & 0x1FFFFF;
+                UInt32 raw_children = (bytes >> 11) & 0x1FFFFF;
 
                 // note: we store raw_children as u16 for alignment purposes
                 // aaaa aaaa iiic cccc cccc cccc ccc- ---- (- = ignored)
@@ -516,9 +513,9 @@ namespace CATHODE
 
             public bool Write(BinaryWriter bw)
             {
-                u32 bytes = 0;
+                UInt32 bytes = 0;
 
-                u32 tmp = Children;
+                UInt32 tmp = Children;
                 bytes |= tmp << 11;
 
                 tmp = RawInfo;
@@ -532,7 +529,7 @@ namespace CATHODE
                 return true;
             }
 
-            static public u32 Size()
+            static public UInt32 Size()
             {
                 return 4;
             }
@@ -548,8 +545,8 @@ namespace CATHODE
             public BMLString.Ref End { get; private set; }
             public BMLString.Ref Inner { get; private set; }
 
-            public u32 Offset { get; set; } // public modifier
-            public u32 Depth { get; private set; }
+            public UInt32 Offset { get; set; } // public modifier
+            public UInt32 Depth { get; private set; }
 
             public NodeFlags Flags { get; private set; }
 
@@ -584,7 +581,7 @@ namespace CATHODE
                 return false;
             }
 
-            public bool ReadXML(XmlElement ele, u32 depth)
+            public bool ReadXML(XmlElement ele, UInt32 depth)
             {
                 bool valid = true;
 
@@ -656,7 +653,7 @@ namespace CATHODE
                 return valid;
             }
 
-            public bool Read(BinaryReader br, u32 depth)
+            public bool Read(BinaryReader br, UInt32 depth)
             {
                 bool valid = true;
 
@@ -669,7 +666,7 @@ namespace CATHODE
 
                 if (Flags.Attributes > 0)
                 {
-                    for (u32 attribs = 0; attribs < (u32)Flags.Attributes; attribs++)
+                    for (UInt32 attribs = 0; attribs < (UInt32)Flags.Attributes; attribs++)
                     {
                         Attribute a = new Attribute();
                         valid &= a.Read(br);
@@ -730,9 +727,9 @@ namespace CATHODE
                 return valid;
             }
 
-            public u32 Size()
+            public UInt32 Size()
             {
-                u32 my_size = 0;
+                UInt32 my_size = 0;
 
                 // text offset
                 my_size += 4;
@@ -832,7 +829,7 @@ namespace CATHODE
                 }
             }
 
-            public bool Write(BinaryWriter bw, u32 of1, u32 of2)
+            public bool Write(BinaryWriter bw, UInt32 of1, UInt32 of2)
             {
                 // text offset
                 Text.Fixup(of1, of2);
@@ -882,7 +879,7 @@ namespace CATHODE
         {
             #region Common methods for reading strings from a BinaryReader
 
-            static public string MakeCleanString(u8[] bytes)
+            static public string MakeCleanString(Byte[] bytes)
             {
                 return Encoding.Default.GetString(bytes).TrimEnd('\0');
             }
@@ -899,13 +896,13 @@ namespace CATHODE
                 return MakeCleanString(buf.ToArray());
             }
 
-            static public string ReadNullTerminatedStringAt(BinaryReader br, u32 targetpos)
+            static public string ReadNullTerminatedStringAt(BinaryReader br, UInt32 targetpos)
             {
                 br.BaseStream.Position = targetpos;
                 return ReadInlineNullTerminatedString(br);
             }
 
-            static public string ReadNullTerminatedString(BinaryReader br, u32 targetpos)
+            static public string ReadNullTerminatedString(BinaryReader br, UInt32 targetpos)
             {
 #if DEBUG
                 if (targetpos >= br.BaseStream.Length)
@@ -960,7 +957,7 @@ namespace CATHODE
             struct Inst
             {
                 public string Value;
-                public u32 Offset;
+                public UInt32 Offset;
 
                 public Inst(string str_value)
                 {
@@ -997,7 +994,7 @@ namespace CATHODE
 
                     Inst[] items = Strings.OrderBy(x => x.Value).ToArray();
 
-                    u32 InternalOffset = 0;
+                    UInt32 InternalOffset = 0;
 
                     for (int i = 0; i < items.Count(); i++)
                     {
@@ -1008,7 +1005,7 @@ namespace CATHODE
                     Strings = items.ToList();
                 }
 
-                public u32 GetOffset(string str)
+                public UInt32 GetOffset(string str)
                 {
                     int idx = Strings.FindIndex(i => i.Value == str);
                     if (idx != -1)
@@ -1028,7 +1025,7 @@ namespace CATHODE
 
                     foreach (Inst i in Strings)
                     {
-                        u8[] data = Encoding.Default.GetBytes(i.Value + "\0");
+                        Byte[] data = Encoding.Default.GetBytes(i.Value + "\0");
                         ms.Write(data, 0, data.Length);
                     }
 
@@ -1042,7 +1039,7 @@ namespace CATHODE
             public class Ref
             {
                 public string value { get; private set; }
-                public u32 offset { get; private set; }
+                public UInt32 offset { get; private set; }
 
                 bool main_pool;
 
@@ -1070,7 +1067,7 @@ namespace CATHODE
                     AddToCache();
                 }
 
-                public void Fixup(u32 block_1, u32 block_2)
+                public void Fixup(UInt32 block_1, UInt32 block_2)
                 {
                     offset = main_pool ? block_1 : block_2;
                     offset += main_pool ? StringPool1.GetOffset(value) : StringPool2.GetOffset(value);
