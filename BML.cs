@@ -15,7 +15,7 @@ namespace CATHODE
     public class BML : CathodeFile
     {
         public XmlDocument Content { get { return GetContent(); } set { SetContent(value); } }
-        public static new Impl Implementation = Impl.CREATE | Impl.LOAD | Impl.SAVE;
+        public static new Implementation Implementation = Implementation.CREATE | Implementation.LOAD | Implementation.SAVE;
         public BML(string path) : base(path) { }
 
         private Header _header;
