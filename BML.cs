@@ -1,4 +1,4 @@
-﻿// Alien Isolation (Binary XML converter)
+// Alien Isolation (Binary XML converter)
 // Written by WRS (xentax.com)
 
 using System;
@@ -116,6 +116,7 @@ namespace CATHODE
             bool valid = true;
             BMLString.StringPool1.Clear();
             BMLString.StringPool2.Clear();
+            _root = new Node();
             _root.SetDeclaration();
             foreach (XmlNode xnode in doc.ChildNodes)
             {
