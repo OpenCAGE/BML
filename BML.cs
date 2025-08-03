@@ -16,16 +16,19 @@ namespace CATHODE
     {
         public XmlDocument Content { get { return GetContent(); } set { SetContent(value); } }
         public static new Implementation Implementation = Implementation.CREATE | Implementation.LOAD | Implementation.SAVE;
+
         public BML(string path) : base(path) { }
+        public BML(MemoryStream stream, string path = "") : base(stream, path) { }
+        public BML(byte[] data, string path = "") : base(data, path) { }
 
         private Header _header;
         private Node _root = new Node();
 
         #region FILE_IO
-        override protected bool LoadInternal()
+        override protected bool LoadInternal(MemoryStream stream)
         {
             bool valid = true;
-            using (BinaryReader reader = new BinaryReader(File.OpenRead(_filepath)))
+            using (BinaryReader reader = new BinaryReader(stream))
             {
                 valid &= _header.Read(reader);
                 if (!valid)
