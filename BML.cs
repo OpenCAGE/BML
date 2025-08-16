@@ -11,7 +11,9 @@ using System.Linq;
 
 namespace CATHODE
 {
-    /* Handles BML config files as XML douments */
+    /// <summary>
+    /// Handles BML config files as XML douments
+    /// </summary>
     public class BML : CathodeFile
     {
         public XmlDocument Content { get { return GetContent(); } set { SetContent(value); } }
@@ -103,7 +105,9 @@ namespace CATHODE
         #endregion
 
         #region ACCESSORS
-        /* Get the content of the BML file (as XML) */
+        /// <summary>
+        /// Get the content of the BML file (as XML)
+        /// </summary>
         private XmlDocument GetContent()
         {
             FixupAllNodes(_root, true);
@@ -113,7 +117,9 @@ namespace CATHODE
             return xml;
         }
 
-        /* Set the content of the BML file (as XML) */
+        /// <summary>
+        /// Set the content of the BML file (as XML)
+        /// </summary>
         private bool SetContent(XmlDocument doc)
         {
             bool valid = true;
