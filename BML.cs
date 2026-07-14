@@ -110,9 +110,17 @@ namespace CATHODE
         /// </summary>
         private XmlDocument GetContent()
         {
-            FixupAllNodes(_root, true);
-
             XmlDocument xml = new XmlDocument();
+
+            // Failed/missing loads leave an empty root with null Text - don't crash the editor
+            if (_root == null || _root.Text == null || string.IsNullOrEmpty(_root.Text.value))
+            {
+                xml.AppendChild(xml.CreateXmlDeclaration("1.0", "utf-8", null));
+                xml.AppendChild(xml.CreateElement("Attribute"));
+                return xml;
+            }
+
+            FixupAllNodes(_root, true);
             xml.LoadXml(DumpNode(_root));
             return xml;
         }
@@ -293,7 +301,13 @@ namespace CATHODE
 
         private void FixupAllNodes(Node n, bool last_node)
         {
+            if (n == null)
+                return;
+
             n.Fixup(last_node);
+
+            if (n.Nodes == null || n.Nodes.Count == 0)
+                return;
 
             int last = n.Nodes.Count - 1;
             int count = 0;
@@ -775,6 +789,15 @@ namespace CATHODE
 
             public void Fixup(bool last_child)
             {
+                if (Flags == null)
+                    Flags = new NodeFlags();
+                if (Attributes == null)
+                    Attributes = new List<Attribute>();
+                if (Nodes == null)
+                    Nodes = new List<Node>();
+                if (Text == null)
+                    Text = new BMLString.Ref("", true);
+
                 Flags.RawInfo = 0;
                 Flags.Attributes = Convert.ToByte(Attributes.Count & 0xFF);
                 Flags.Children = Convert.ToUInt16(Nodes.Count & 0xFFFF);
