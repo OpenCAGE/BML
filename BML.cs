@@ -48,7 +48,30 @@ namespace CATHODE
 
         override protected bool SaveInternal()
         {
-            using (BinaryWriter writer = new BinaryWriter(File.OpenWrite(_filepath)))
+            byte[] content = ToBytes();
+            if (content == null) return false;
+            File.WriteAllBytes(_filepath, content);
+            return true;
+        }
+
+        /// <summary>
+        /// Serialise to the BML byte image, for the files that live inside a PAK rather than loose on
+        /// disk - a skeleton definition, for one.
+        /// </summary>
+        public byte[] ToBytes()
+        {
+            using (MemoryStream output = new MemoryStream())
+            {
+                using (BinaryWriter writer = new BinaryWriter(output))
+                {
+                    if (!Write(writer)) return null;
+                }
+                return output.ToArray();
+            }
+        }
+
+        private bool Write(BinaryWriter writer)
+        {
             {
                 FixupAllNodes(_root, true);
 
