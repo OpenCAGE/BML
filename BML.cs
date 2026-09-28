@@ -26,24 +26,31 @@ namespace CATHODE
         private Header _header;
         private Node _root = new Node();
 
+        //The string pools are shared by every BML and loading one clears them, so anything that fills or reads them holds
+        //this: without it, a BML loaded on one thread could empty the pools another thread is writing a file from
+        private static readonly object _poolLock = new object();
+
         #region FILE_IO
         override protected bool LoadInternal(MemoryStream stream)
         {
-            bool valid = true;
-            using (BinaryReader reader = new BinaryReader(stream))
+            lock (_poolLock)
             {
-                valid &= _header.Read(reader);
-                if (!valid)
+                bool valid = true;
+                using (BinaryReader reader = new BinaryReader(stream))
                 {
-                    reader.Close();
-                    return valid;
-                }
+                    valid &= _header.Read(reader);
+                    if (!valid)
+                    {
+                        reader.Close();
+                        return valid;
+                    }
 
-                BMLString.StringPool1.Clear();
-                BMLString.StringPool2.Clear();
-                valid &= ReadAllNodes(reader);
+                    BMLString.StringPool1.Clear();
+                    BMLString.StringPool2.Clear();
+                    valid &= ReadAllNodes(reader);
+                }
+                return valid;
             }
-            return valid;
         }
 
         override protected bool SaveInternal()
@@ -60,19 +67,27 @@ namespace CATHODE
         /// </summary>
         public byte[] ToBytes()
         {
-            using (MemoryStream output = new MemoryStream())
+            lock (_poolLock)
             {
-                using (BinaryWriter writer = new BinaryWriter(output))
+                using (MemoryStream output = new MemoryStream())
                 {
-                    if (!Write(writer)) return null;
+                    using (BinaryWriter writer = new BinaryWriter(output))
+                    {
+                        if (!Write(writer)) return null;
+                    }
+                    return output.ToArray();
                 }
-                return output.ToArray();
             }
         }
 
         private bool Write(BinaryWriter writer)
         {
             {
+                //The pools hold whichever BML last loaded or had its content set, which need not be this one: write from our own strings
+                BMLString.StringPool1.Clear();
+                BMLString.StringPool2.Clear();
+                RegisterStrings(_root);
+
                 FixupAllNodes(_root, true);
 
                 Node[] nodearray = GetNodeArray();
@@ -143,8 +158,11 @@ namespace CATHODE
                 return xml;
             }
 
-            FixupAllNodes(_root, true);
-            xml.LoadXml(DumpNode(_root));
+            lock (_poolLock)
+            {
+                FixupAllNodes(_root, true);
+                xml.LoadXml(DumpNode(_root));
+            }
             return xml;
         }
 
@@ -152,6 +170,12 @@ namespace CATHODE
         /// Set the content of the BML file (as XML)
         /// </summary>
         private bool SetContent(XmlDocument doc)
+        {
+            lock (_poolLock)
+                return SetContentLocked(doc);
+        }
+
+        private bool SetContentLocked(XmlDocument doc)
         {
             bool valid = true;
             BMLString.StringPool1.Clear();
@@ -300,7 +324,8 @@ namespace CATHODE
                 if (n.Inner != null && n.Inner.value.Length != 0)
                 {
                     d += ">";
-                    d += n.Inner.value;
+                    //Encoded as in the branch above: a value holding '&' or '<' could be written but never read back
+                    d += BMLString.EncodeXml(n.Inner.value);
                     d += String.Format("</{0}>", n.Text.value);
                     d += n.End2.value;
                 }
@@ -320,6 +345,30 @@ namespace CATHODE
             }
 
             return d;
+        }
+
+        private static void RegisterStrings(Node n)
+        {
+            if (n == null)
+                return;
+
+            n.Text?.Register();
+            n.Inner?.Register();
+            n.End?.Register();
+            n.End2?.Register();
+            if (n.Attributes != null)
+            {
+                foreach (Attribute a in n.Attributes)
+                {
+                    a.Name?.Register();
+                    a.Value?.Register();
+                }
+            }
+            if (n.Nodes != null)
+            {
+                foreach (Node c in n.Nodes)
+                    RegisterStrings(c);
+            }
         }
 
         private void FixupAllNodes(Node n, bool last_node)
@@ -1026,6 +1075,10 @@ namespace CATHODE
             {
                 private List<Inst> Strings;
 
+                //Lookups by value: searching the list made loading and writing a large BML quadratic in its string count
+                private HashSet<string> _present = new HashSet<string>();
+                private Dictionary<string, UInt32> _offsets = new Dictionary<string, UInt32>();
+
                 public Cache()
                 {
                     Strings = new List<Inst>();
@@ -1034,11 +1087,13 @@ namespace CATHODE
                 public void Clear()
                 {
                     Strings.Clear();
+                    _present.Clear();
+                    _offsets.Clear();
                 }
 
                 public void AddString(string str)
                 {
-                    if (!Strings.Exists(i => i.Value == str))
+                    if (_present.Add(str))
                     {
                         Strings.Add(new Inst(str));
                     }
@@ -1052,9 +1107,11 @@ namespace CATHODE
 
                     UInt32 InternalOffset = 0;
 
+                    _offsets.Clear();
                     for (int i = 0; i < items.Count(); i++)
                     {
                         items[i].Offset = InternalOffset;
+                        _offsets[items[i].Value] = InternalOffset;
                         InternalOffset += Convert.ToUInt32(items[i].Value.Length + 1);
                     }
 
@@ -1063,13 +1120,9 @@ namespace CATHODE
 
                 public UInt32 GetOffset(string str)
                 {
-                    int idx = Strings.FindIndex(i => i.Value == str);
-                    if (idx != -1)
-                    {
-                        return Strings[idx].Offset;
-                    }
-
-                    return 0;
+                    //A string added since the last export has no offset yet, as before
+                    UInt32 offset;
+                    return _offsets.TryGetValue(str, out offset) ? offset : 0;
                 }
 
                 public MemoryStream Export()
@@ -1103,6 +1156,12 @@ namespace CATHODE
                 {
                     if (main_pool) StringPool1.AddString(value);
                     else StringPool2.AddString(value);
+                }
+
+                /// <summary>Put this string back in its pool (the pools are rebuilt from a BML's own strings before it is written).</summary>
+                public void Register()
+                {
+                    AddToCache();
                 }
 
                 public Ref(string raw_string, bool coreString)
